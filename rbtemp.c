@@ -1,45 +1,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-struct node {
-    int data;         // node value
-    int color;        // 1 = red, 0 = black
-    struct node *left, *right, *parent;
+struct Node {
+    int data;
+    int color;   // 1 = RED, 0 = BLACK
+    struct Node *left, *right, *parent;
 };
 
-struct node *root = NULL;
+struct Node *root = NULL;
 
-// --- Utility: Create new node (always red) ---
-struct node* createNode(int data) {
-    struct node *temp = (struct node*) malloc(sizeof(struct node));
-    temp->data = data;
-    temp->color = 1;   // new node is red
-    temp->left = temp->right = temp->parent = NULL;
-    return temp;
+/* Create a new RB node (always RED initially) */
+struct Node* newNode(int data) {
+    struct Node* n = (struct Node*)malloc(sizeof(struct Node));
+    n->data = data;
+    n->color = 1;   // RED = 1
+    n->left = n->right = n->parent = NULL;
+    return n;
 }
 
-// --- Standard BST insert ---
-struct node* bstInsert(struct node *trav, struct node *temp) {
-    if (trav == NULL)
-        return temp;
-    if (temp->data < trav->data) {
-        trav->left = bstInsert(trav->left, temp);
-        trav->left->parent = trav;
-    } else if (temp->data > trav->data) {
-        trav->right = bstInsert(trav->right, temp);
-        trav->right->parent = trav;
-    }
-    return trav;
-}
+/* LEFT ROTATE */
+void leftRotate(struct Node* x) {
+    struct Node* y = x->right;
+    if (!y) return;
 
-// --- Left rotation ---
-void leftRotate(struct node *x) {
-    struct node *y = x->right;
     x->right = y->left;
-    if (y->left != NULL)
-        y->left->parent = x;
+    if (y->left != NULL) y->left->parent = x;
 
     y->parent = x->parent;
+
     if (x->parent == NULL)
         root = y;
     else if (x == x->parent->left)
@@ -51,114 +39,131 @@ void leftRotate(struct node *x) {
     x->parent = y;
 }
 
-// --- Right rotation ---
-void rightRotate(struct node *x) {
-    struct node *y = x->left;
+/* RIGHT ROTATE */
+void rightRotate(struct Node* x) {
+    struct Node* y = x->left;
+    if (!y) return;
+
     x->left = y->right;
-    if (y->right != NULL)
-        y->right->parent = x;
+    if (y->right) y->right->parent = x;
 
     y->parent = x->parent;
+
     if (x->parent == NULL)
         root = y;
-    else if (x == x->parent->left)
-        x->parent->left = y;
-    else
+    else if (x == x->parent->right)
         x->parent->right = y;
+    else
+        x->parent->left = y;
 
     y->right = x;
     x->parent = y;
 }
 
-// --- Fix Red-Black violations ---
-void fixViolation(struct node *root, struct node *pt) {
-    struct node *parent = NULL;
-    struct node *grandparent = NULL;
+/* FIX VIOLATIONS */
+void fixViolation(struct Node* pt) {
+    while (pt != root && pt->parent->color == 1) {  // parent red = 1
+        struct Node *parent = pt->parent;
+        struct Node *grandParent = parent->parent;
 
-    while ((pt != root) && (pt->color == 1) && (pt->parent->color == 1)) {
-        parent = pt->parent;
-        grandparent = pt->parent->parent;
+        if (parent == grandParent->left) {
+            struct Node* uncle = grandParent->right;
 
-        // Case A – parent is left child of grandparent
-        if (parent == grandparent->left) {
-            struct node *uncle = grandparent->right;
-
-            // Case 1: Uncle is red (Recolor)
             if (uncle != NULL && uncle->color == 1) {
-                grandparent->color = 1;
                 parent->color = 0;
                 uncle->color = 0;
-                pt = grandparent;
-            } else {
-                // Case 2: pt is right child -> Left rotate first
+                grandParent->color = 1;
+                pt = grandParent;
+            }
+            else {
                 if (pt == parent->right) {
                     leftRotate(parent);
                     pt = parent;
                     parent = pt->parent;
                 }
-                // Case 3: pt is left child -> Right rotate
-                rightRotate(grandparent);
-                int tempColor = parent->color;
-                parent->color = grandparent->color;
-                grandparent->color = tempColor;
-                pt = parent;
+                parent->color = 0;
+                grandParent->color = 1;
+                rightRotate(grandParent);
             }
         }
-
-        // Case B – parent is right child of grandparent
         else {
-            struct node *uncle = grandparent->left;
+            struct Node* uncle = grandParent->left;
 
-            // Case 1: Uncle is red (Recolor)
             if (uncle != NULL && uncle->color == 1) {
-                grandparent->color = 1;
                 parent->color = 0;
                 uncle->color = 0;
-                pt = grandparent;
-            } else {
-                // Case 2: pt is left child -> Right rotate first
+                grandParent->color = 1;
+                pt = grandParent;
+            }
+            else {
                 if (pt == parent->left) {
                     rightRotate(parent);
                     pt = parent;
                     parent = pt->parent;
                 }
-                // Case 3: pt is right child -> Left rotate
-                leftRotate(grandparent);
-                int tempColor = parent->color;
-                parent->color = grandparent->color;
-                grandparent->color = tempColor;
-                pt = parent;
+                parent->color = 0;
+                grandParent->color = 1;
+                leftRotate(grandParent);
             }
         }
     }
-    root->color = 0; // Root must always be black
+
+    root->color = 0;   // BLACK = 0
 }
 
-// --- Inorder traversal for display ---
-void inorder(struct node* root) {
-    if (root == NULL)
-        return;
-    inorder(root->left);
-    printf("%d(%s) ", root->data, (root->color == 0 ? "B" : "R"));
-    inorder(root->right);
+/* RECURSIVE BST INSERT */
+struct Node* bstInsert(struct Node* node, struct Node* pt) {
+    if (node == NULL)
+        return pt;
+
+    if (pt->data < node->data) {
+        node->left = bstInsert(node->left, pt);
+        node->left->parent = node;
+    }
+    else if (pt->data > node->data) {
+        node->right = bstInsert(node->right, pt);
+        node->right->parent = node;
+    }
+    else
+        return node; // duplicate ignored
+
+    return node;
 }
 
-// --- Main Function ---
+/* INSERT: recursive BST + fix */
+void insert(int data) {
+    struct Node* pt = newNode(data);
+
+    root = bstInsert(root, pt);
+
+    fixViolation(pt);
+}
+
+/* Inorder traversal */
+void inorder(struct Node* n) {
+    if (!n) return;
+    inorder(n->left);
+    printf("%d(%c) ", n->data, n->color == 1 ? 'R' : 'B');
+    inorder(n->right);
+}
+
 int main() {
-    int arr[] = {7, 6, 5, 4, 3, 2, 1};
-    int n = sizeof(arr) / sizeof(arr[0]);
+    int count;
+    printf("Enter number of elements to add");
+    scanf("%d", &count);
 
-    for (int i = 0; i < n; i++) {
-        struct node *temp = createNode(arr[i]);
-        root = bstInsert(root, temp);
-        fixViolation(root, temp);
-        root->color = 0; // ensure root black after each insertion
+    int arr[count];
+    printf("Enter elements");
+
+    for(int i = 0; i < count; i++) {
+        int value;
+        scanf("%d", &value);
+        arr[i] = value;
     }
 
-    printf("Inorder traversal (value with color):
-");
+    for (int i = 0; i < count; i++)
+        insert(arr[i]);
+
     inorder(root);
-    printf("
-");
     return 0;
 }
